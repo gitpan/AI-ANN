@@ -1,0 +1,17 @@
+ANN_specification
+COPYING
+Changes
+MANIFEST
+META.yml
+Makefile.PL
+README
+dist.ini
+gpl.txt
+lib/AI/ANN.pm
+lib/AI/ANN/Neuron.pm
+t/00_initialize.t
+t/01_neuron_basic.t
+t/02_network_basic.t
+t/release-pod-coverage.t
+t/release-pod-syntax.t
+weaver.ini

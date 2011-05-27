@@ -1,0 +1,5 @@
+Revision History for ANN
+
+0.001     2011-05-27 03:04:06 UTC
+          Initial release. ANN and ANN::Neuron working, basic test suite and
+          documentation.
