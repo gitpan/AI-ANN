@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 package AI::ANN::Evolver;
 BEGIN {
-  $AI::ANN::Evolver::VERSION = '0.003';
+  $AI::ANN::Evolver::VERSION = '0.004';
 }
 # ABSTRACT: an evolver for an artificial neural network simulator
 
@@ -75,11 +75,11 @@ sub crossover {
 				$networkdata2->[$i] );
 		}		
 	}
-	my $network3 = $class->new ({ 'inputs' => $inputcount, 
+	my $network3 = $class->new ( 'inputs' => $inputcount, 
 								  'data' => $networkdata3,
 								  'minvalue' => $minvalue,
 								  'maxvalue' => $maxvalue,
-								  'afunc' => $afunc});
+								  'afunc' => $afunc);
 	return $network3;
 }
 
@@ -195,11 +195,11 @@ sub mutate {
 	}
 	# All done. Let's pack it back into an object and let someone else deal
 	# with it.
-	$network = $class->new ({ 'inputs' => $inputcount, 
+	$network = $class->new ( 'inputs' => $inputcount, 
 								 'data' => $networkdata,
 								 'minvalue' => $minvalue,
 								 'maxvalue' => $maxvalue,
-								 'afunc' => $afunc});
+								 'afunc' => $afunc);
 	return $network;
 }
 
@@ -215,7 +215,7 @@ AI::ANN::Evolver - an evolver for an artificial neural network simulator
 
 =head1 VERSION
 
-version 0.003
+version 0.004
 
 =head1 METHODS
 

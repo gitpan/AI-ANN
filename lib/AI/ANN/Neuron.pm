@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 package AI::ANN::Neuron;
 BEGIN {
-  $AI::ANN::Neuron::VERSION = '0.003';
+  $AI::ANN::Neuron::VERSION = '0.004';
 }
 # ABSTRACT: a neuron for an artificial neural network simulator
 
@@ -83,7 +83,7 @@ AI::ANN::Neuron - a neuron for an artificial neural network simulator
 
 =head1 VERSION
 
-version 0.003
+version 0.004
 
 =head1 METHODS
 

@@ -9,8 +9,8 @@ BEGIN { use_ok('AI::ANN');
 # Insert your test code below, the Test::More module is use()ed here so read
 # its man page ( perldoc Test::More ) for help writing this test script.
 
-$network=new AI::ANN ({'inputs'=>1, 'data'=>[{ iamanoutput => 0, inputs => {0 => 2}, neurons => {}},
-                       { iamanoutput => 1, inputs => {}, neurons => {0 => 2}}], 'maxvalue' => 10});
+$network=new AI::ANN ('inputs'=>1, 'data'=>[{ iamanoutput => 0, inputs => {0 => 2}, neurons => {}},
+                       { iamanoutput => 1, inputs => {}, neurons => {0 => 2}}], 'maxvalue' => 10);
 
 ok(defined $network, "new() works");
 ok($network->isa("AI::ANN"), "Right class");

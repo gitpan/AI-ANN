@@ -11,8 +11,8 @@ BEGIN { use_ok('AI::ANN');
 
 # This test basically works by crossing a network with itself and making sure nothing changes
 
-$network1=new AI::ANN ({'inputs'=>1, 'data'=>[{ iamanoutput => 1, inputs => {0 => 1}, neurons => {}}]});
-$network2=new AI::ANN ({'inputs'=>1, 'data'=>[{ iamanoutput => 1, inputs => {0 => 1}, neurons => {}}]});
+$network1=new AI::ANN ('inputs'=>1, 'data'=>[{ iamanoutput => 1, inputs => {0 => 1}, neurons => {}}]);
+$network2=new AI::ANN ('inputs'=>1, 'data'=>[{ iamanoutput => 1, inputs => {0 => 1}, neurons => {}}]);
 
 ok(defined $network1, "new() works");
 ok($network1->isa("AI::ANN"), "Right class");
@@ -62,16 +62,16 @@ $evolver=new AI::ANN::Evolver ({mutation_chance => 0.5,
 	kill_link_chance => 0.2, sub_crossover_chance => 
 	0.2, min_value => 0, max_value => 4});
 
-$network1=new AI::ANN ({'inputs'=>1,
+$network1=new AI::ANN ('inputs'=>1,
 		   'data'=>[{ iamanoutput => 0, inputs => {0 => 2}, neurons => {}},
                             { iamanoutput => 0, inputs => {0 => 1}, neurons => {0 => 1}},
                             { iamanoutput => 1, inputs => {}, neurons => {0 => 2, 1 => 1}}, 
-                            { iamanoutput => 1, inputs => {}, neurons => {0 => 3}}]});
-$network2=new AI::ANN ({'inputs'=>1,
+                            { iamanoutput => 1, inputs => {}, neurons => {0 => 3}}]);
+$network2=new AI::ANN ('inputs'=>1,
 		   'data'=>[{ iamanoutput => 0, inputs => {0 => 1}, neurons => {}},
                             { iamanoutput => 0, inputs => {0 => 2}, neurons => {0 => 2}},
                             { iamanoutput => 1, inputs => {}, neurons => {0 => 3}}, 
-                            { iamanoutput => 1, inputs => {}, neurons => {0 => 2, 1 => 1}}]});
+                            { iamanoutput => 1, inputs => {}, neurons => {0 => 2, 1 => 1}}]);
 ok(defined $network1, "new() works");
 ok($network1->isa("AI::ANN"), "Right class");
 

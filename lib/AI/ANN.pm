@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 package AI::ANN;
 BEGIN {
-  $AI::ANN::VERSION = '0.003';
+  $AI::ANN::VERSION = '0.004';
 }
 use strict;
 use warnings;
@@ -14,18 +14,17 @@ use Storable qw(dclone);
 
 
 sub new {
-	my $proto = shift;
-	my $class = ref($proto) || $proto;
+	my $class = shift;
 	my $self = {};
-	my $data = shift;
-	$self->{'inputcount'} = $data->{'inputs'};
+	my %data = @_;
+	$self->{'inputcount'} = $data{'inputs'};
 	$self->{'outputneurons'} = [];
 	$self->{'network'} = [];
 	$self->{'inputs'} = [];
-	$self->{'minvalue'} = $data->{'minvalue'} || 0;
-	$self->{'maxvalue'} = $data->{'maxvalue'} || 1;
-	$self->{'afunc'} = $data->{'afunc'} || sub { shift };
-	my $neuronlist = $data->{'data'};
+	$self->{'minvalue'} = $data{'minvalue'} || 0;
+	$self->{'maxvalue'} = $data{'maxvalue'} || 1;
+	$self->{'afunc'} = $data{'afunc'} || sub { shift };
+	my $neuronlist = $data{'data'};
 	for (my $i = 0; $i <= $#{$neuronlist} ; $i++) {
 		push $self->{'outputneurons'}, $i # Requires Perl 5.14 !!!
 			if $neuronlist->[$i]->{'iamanoutput'};
@@ -192,7 +191,7 @@ AI::ANN - an artificial neural network simulator
 
 =head1 VERSION
 
-version 0.003
+version 0.004
 
 =head1 SYNOPSIS
 
@@ -204,7 +203,7 @@ my $outputs = $network->execute( \@inputs );
 
 =head2 new
 
-ANN::new({inputs => $inputcount, data => [{ iamanoutput => 0, inputs => {$inputid => $weight, ...}, neurons => {$neuronid => $weight}}, ...]})
+ANN::new(inputs => $inputcount, data => [{ iamanoutput => 0, inputs => {$inputid => $weight, ...}, neurons => {$neuronid => $weight}}, ...])
 
 inputs is number of inputs.
 data is an arrayref of neuron definitions.
