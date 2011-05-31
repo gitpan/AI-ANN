@@ -1,5 +1,14 @@
 Revision History for ANN
 
+0.005     2011-05-31 20:18:02 UTC
+          Convert to use Moose. I'm told that this is better. There are a few 
+          neat things (not having to write accessors, and apparently 
+          inheritance just works, I'll find out about that soon enough...) 
+          but overall I really don't see the point. Default values, type 
+          constraints, I had all that anyway. Meh.
+
+          Add some words about what the point of this module is.
+
 0.004     2011-05-31 02:35:26 UTC
           Minor calling changes that I need to commit so I can test them with 
           another module.

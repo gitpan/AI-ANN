@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 package AI::ANN::Evolver;
 BEGIN {
-  $AI::ANN::Evolver::VERSION = '0.004';
+  $AI::ANN::Evolver::VERSION = '0.005';
 }
 # ABSTRACT: an evolver for an artificial neural network simulator
 
@@ -10,25 +10,19 @@ use warnings;
 
 use 5.014_000;
 
+use Moose;
+
 use AI::ANN;
 use Storable qw(dclone);
 
 
-sub new {
-	my $proto = shift;
-	my $class = ref($proto) || $proto;
-	my $self = {};
-	my $data = shift || {};
-	$self->{'max_value'}=$data->{'max_value'} || 1;
-	$self->{'min_value'}=$data->{'min_value'} || 0;
-	$self->{'mutation_chance'}=$data->{'mutation_chance'} || 0;
-	$self->{'mutation_amount'}=$data->{'mutation_amount'} || 0;
-	$self->{'add_link_chance'}=$data->{'add_link_chance'} || 0;
-	$self->{'kill_link_chance'}=$data->{'kill_link_chance'} || 0;
-	$self->{'sub_crossover_chance'}=$data->{'sub_crossover_chance'} || 0;
-	bless($self, $class);
-	return $self;
-}
+has 'max_value' => (is => 'rw', isa => 'Num', default => 1);
+has 'min_value' => (is => 'rw', isa => 'Num', default => 0);
+has 'mutation_chance' => (is => 'rw', isa => 'Num', default => 0);
+has 'mutation_amount' => (is => 'rw', isa => 'Num', default => 0);
+has 'add_link_chance' => (is => 'rw', isa => 'Num', default => 0);
+has 'kill_link_chance' => (is => 'rw', isa => 'Num', default => 0);
+has 'sub_crossover_chance' => (is => 'rw', isa => 'Num', default => 0);
 
 
 sub crossover {
@@ -36,12 +30,12 @@ sub crossover {
 	my $network1 = shift;
 	my $network2 = shift;
 	my $class = ref($network1);
-	my $inputcount = $network1->get_input_count();
-	my $minvalue = $network1->get_minvalue();
-	my $maxvalue = $network1->get_maxvalue();
-	my $afunc = $network1->get_afunc();
+	my $inputcount = $network1->input_count();
+	my $minvalue = $network1->minvalue();
+	my $maxvalue = $network1->maxvalue();
+	my $afunc = $network1->afunc();
 	# They better have the same number of inputs
-	$inputcount == $network2->get_input_count() || return -1; 
+	$inputcount == $network2->input_count() || return -1; 
 	my $networkdata1 = $network1->get_internals();
 	my $networkdata2 = $network2->get_internals();
 	my $neuroncount = $#{$networkdata1};
@@ -89,17 +83,16 @@ sub mutate {
 	my $network = shift;
 	my $class = ref($network);
 	my $networkdata = $network->get_internals();
-	my $inputcount = $network->get_input_count();
-	my $minvalue = $network->get_minvalue();
-	my $maxvalue = $network->get_maxvalue();
-	my $afunc = $network->get_afunc();
+	my $inputcount = $network->input_count();
+	my $minvalue = $network->minvalue();
+	my $maxvalue = $network->maxvalue();
+	my $afunc = $network->afunc();
 	my $neuroncount = $#{$networkdata}; # BTW did you notice that this 
 										# isn't what it says it is?
 	$networkdata = dclone($networkdata); # For safety.
 	for (my $i = 0; $i <= $neuroncount; $i++) {
 		# First each input/neuron pair
 		for (my $j = 0; $j < $inputcount; $j++) {
-			# I think the following like is right, but it's also midnight...
 			my $weight = $networkdata->[$i]->{'inputs'}->{$j};
 			if (defined $weight && $weight != 0) {
 				if (rand() < $self->{'mutation_chance'}) {
@@ -140,7 +133,7 @@ sub mutate {
 				}
 			}
 			# This would be a bloody nightmare if we hadn't done that dclone 
-			# magic before. 
+			# magic before. But look how easy it is!
 			$networkdata->[$i]->{'inputs'}->{$j} = $weight;
 		}
 		# Now each neuron/neuron pair
@@ -164,6 +157,7 @@ sub mutate {
 						$weight = undef;
 					}
 				}
+
 			} else {
 				if (rand() < $self->{'add_link_chance'}) {
 					$weight = rand() * $self->{'mutation_amount'};
@@ -188,7 +182,7 @@ sub mutate {
 				}
 			}
 			# This would be a bloody nightmare if we hadn't done that dclone 
-			# magic before. 
+			# magic before. But look how easy it is!
 			$networkdata->[$i]->{'neurons'}->{$j} = $weight;
 		}
 		# That was rather tiring, and that's only for the first neuron!!
@@ -204,7 +198,7 @@ sub mutate {
 }
 
 1;
-		
+
 
 __END__
 =pod
@@ -215,7 +209,7 @@ AI::ANN::Evolver - an evolver for an artificial neural network simulator
 
 =head1 VERSION
 
-version 0.004
+version 0.005
 
 =head1 METHODS
 

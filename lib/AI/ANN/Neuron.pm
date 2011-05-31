@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 package AI::ANN::Neuron;
 BEGIN {
-  $AI::ANN::Neuron::VERSION = '0.004';
+  $AI::ANN::Neuron::VERSION = '0.005';
 }
 # ABSTRACT: a neuron for an artificial neural network simulator
 
@@ -9,18 +9,38 @@ use strict;
 use warnings;
 
 use 5.014_000;
+use Moose;
 
 
-sub new {
-	my $proto = shift;
-	my $class = ref($proto) || $proto;
-	my $self = {};
-	$self->{'id'} = shift;
-	$self->{'inputs'} = shift;	#hashref
-	$self->{'neurons'} = shift;	#hashref
-	bless($self, $class);
-	return $self;
-}
+has 'id' => (is => 'rw', isa => 'Int');
+has 'inputs' => (is => 'rw', isa => 'HashRef[Num]', required => 1);
+has 'neurons' => (is => 'rw', isa => 'HashRef[Num]', required => 1);
+
+around BUILDARGS => sub {
+	my $orig = shift;
+	my $class = shift;
+	my %data;
+	if ( @_ == 2 && ref $_[0] eq 'HASH' && ref $_[1] eq 'HASH' ) {
+		%data = ('inputs' => $_[0], 'neurons' => $_[1]);
+	} elsif ( @_ == 3 && ref $_[1] eq 'HASH' && ref $_[2] eq 'HASH' ) {
+		%data = ('id' => $_[0], 'inputs' => $_[1], 'neurons' => $_[2]);
+	} elsif ( @_ == 1 && ref $_[0] eq 'HASH' ) {
+		%data = %{$_[0]};
+	} else {
+		%data = @_;
+	}
+	foreach my $i (keys %{$data{'inputs'}}) {
+		unless (defined $data{'inputs'}->{$i} && $data{'inputs'}->{$i} > 0) {
+			delete $data{'inputs'}->{$i};
+		}
+	}
+	foreach my $i (keys %{$data{'neurons'}}) {
+		unless (defined $data{'neurons'}->{$i} && $data{'neurons'}->{$i} > 0) {
+			delete $data{'neurons'}->{$i};
+		}
+	}
+	return $class->$orig(%data);
+};
 
 
 sub ready {
@@ -59,18 +79,6 @@ sub execute {
 	return $output;
 }
 
-
-sub get_inputs {
-	my $self = shift;
-	return $self->{'inputs'};
-}
-
-
-sub get_neurons {
-	my $self = shift;
-	return $self->{'neurons'};
-}
-
 1;
 		
 
@@ -83,7 +91,7 @@ AI::ANN::Neuron - a neuron for an artificial neural network simulator
 
 =head1 VERSION
 
-version 0.004
+version 0.005
 
 =head1 METHODS
 
@@ -108,18 +116,6 @@ $neuron->execute( [$input0, $input1, ...], {$neuronid => $neuronvalue, ...} )
 
 All inputs must be provided or you're insane
 Returns raw value (linear potential)
-
-=head2 get_inputs
-
-$neuron->get_inputs() 
-
-Returns a hashref of the input values => weights
-
-=head2 get_neurons
-
-$neuron->get_neurons() 
-
-Returns a hashref of the neuron values => weights
 
 =head1 AUTHOR
 

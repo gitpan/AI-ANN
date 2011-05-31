@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 package AI::ANN;
 BEGIN {
-  $AI::ANN::VERSION = '0.004';
+  $AI::ANN::VERSION = '0.005';
 }
 use strict;
 use warnings;
@@ -9,35 +9,53 @@ use warnings;
 use 5.014_000;
 # ABSTRACT: an artificial neural network simulator
 
+use Moose;
+
 use AI::ANN::Neuron;
 use Storable qw(dclone);
 
 
-sub new {
+has 'input_count' => (is => 'ro', isa => 'Int', required => 1);
+has 'outputneurons' => (is => 'ro', isa => 'ArrayRef[Int]', required => 1);
+has 'network' => (is => 'ro', isa => 'ArrayRef[HashRef]', required => 1);
+# network is an arrayref of hashrefs. Each hashref is:
+# object => AI::ANN::Neuron
+# and has several other elements
+has 'inputs' => (is => 'ro', isa => 'ArrayRef[Int]');
+has 'minvalue' => (is => 'rw', isa => 'Int', default => 0);
+has 'maxvalue' => (is => 'rw', isa => 'Int', default => 1);
+has 'afunc' => (is => 'rw', isa => 'CodeRef', default => sub {sub {shift}});
+
+around BUILDARGS => sub {
+	my $orig = shift;
 	my $class = shift;
-	my $self = {};
-	my %data = @_;
-	$self->{'inputcount'} = $data{'inputs'};
-	$self->{'outputneurons'} = [];
-	$self->{'network'} = [];
-	$self->{'inputs'} = [];
-	$self->{'minvalue'} = $data{'minvalue'} || 0;
-	$self->{'maxvalue'} = $data{'maxvalue'} || 1;
-	$self->{'afunc'} = $data{'afunc'} || sub { shift };
+	my %data;
+	if ( @_ == 1 && ref $_[0] eq 'HASH' ) {
+		%data = %{$_[0]};
+	} else {
+		%data = @_;
+	}
+	if (exists $data{'inputs'} && not exists $data{'input_count'}) {
+		$data{'input_count'} = $data{'inputs'};
+		delete $data{'inputs'}; # inputs is used later for the actual 
+								# values of the inputs.
+	} 
 	my $neuronlist = $data{'data'};
+	$data{'outputneurons'} = [];
+	$data{'network'} = [];
 	for (my $i = 0; $i <= $#{$neuronlist} ; $i++) {
-		push $self->{'outputneurons'}, $i # Requires Perl 5.14 !!!
+		push $data{'outputneurons'}, $i # Requires Perl 5.14 !!!
 			if $neuronlist->[$i]->{'iamanoutput'};
-		$self->{'network'}->[$i]->{'object'} = 
+		$data{'network'}->[$i]->{'object'} = 
 			new AI::ANN::Neuron( 
 				$i, 
 				$neuronlist->[$i]->{'inputs'}, 
 				$neuronlist->[$i]->{'neurons'} 
 				);
 	}
-	bless($self, $class);
-	return $self;
-}
+	delete $data{'data'};
+	return $class->$orig(%data);
+};
 
 
 sub execute {
@@ -121,37 +139,13 @@ sub get_state {
 }
 
 
-sub get_input_count {
-	my $self = shift;
-	return $self->{'inputcount'};
-}
-
-
-sub get_minvalue {
-	my $self = shift;
-	return $self->{'minvalue'};
-}
-
-
-sub get_maxvalue {
-	my $self = shift;
-	return $self->{'maxvalue'};
-}
-
-
-sub get_afunc {
-	my $self = shift;
-	return $self->{'afunc'};
-}
-
-
 sub get_internals {
 	my $self = shift;
 	my $retval = [];
 	for (my $i = 0; $i <= $#{$self->{'network'}}; $i++) {
 		$retval->[$i] = { iamanoutput => 0,
-						  inputs => $self->{'network'}->[$i]->{'object'}->get_inputs(),
-						  neurons => $self->{'network'}->[$i]->{'object'}->get_neurons()
+						  inputs => $self->{'network'}->[$i]->{'object'}->inputs(),
+						  neurons => $self->{'network'}->[$i]->{'object'}->neurons()
 						  };
 	}
 	foreach my $i (@{$self->{'outputneurons'}}) {
@@ -167,10 +161,10 @@ sub readable {
 					scalar(@{$self->{'network'}}) ." neurons.\n";
 	for (my $i = 0; $i <= $#{$self->{'network'}}; $i++) {
 		$retval .= "Neuron $i\n";
-		while (my ($k, $v) = each $self->{'network'}->[$i]->{'object'}->get_inputs()) {
+		while (my ($k, $v) = each $self->{'network'}->[$i]->{'object'}->inputs()) {
 			$retval .= "\tInput from input $k, weight is $v\n";
 		}
-		while (my ($k, $v) = each $self->{'network'}->[$i]->{'object'}->get_neurons()) {
+		while (my ($k, $v) = each $self->{'network'}->[$i]->{'object'}->neurons()) {
 			$retval .= "\tInput from neuron $k, weight is $v\n";
 		}
 		if (map {$_ == $i} $self->{'outputneurons'}) {
@@ -191,21 +185,50 @@ AI::ANN - an artificial neural network simulator
 
 =head1 VERSION
 
-version 0.004
+version 0.005
 
 =head1 SYNOPSIS
 
+AI::ANN is an artificial neural network simulator. It differs from existing 
+solutions in that it fully exposes the internal variables and allows - and 
+forces - the user to fully customize the topology and specifics of the 
+produced neural network. If you want a simple solution, you do not want this 
+module. This module was specifically written to be used for a simulation of 
+evolution in neural networks, not training. The traditional 'backprop' and 
+similar training methods are not (currently) implemented. Rather, we make it 
+easy for a user to specify the precise layout of their network (including both 
+topology and weights, as well as many parameters), and to then retrieve those 
+details. The purpose of this is to allow an additional module to then tweak 
+these values by a means that models evolution by natural selection. The 
+canonical way to do this is the included AI::ANN::Evolver, which allows 
+the addition of random mutations to individual networks, and the crossing of 
+two networks. You will also, depending on your application, need a fitness 
+function of some sort, in order to determine which networks to allow to 
+propagate. Here is an example of that system.
+
 use AI::ANN;
-my $network = new AI::ANN ( inputs => $inputcount, data => \@neuron_definition );
-my $outputs = $network->execute( \@inputs );
+my $network = new AI::ANN ( input_count => $inputcount, data => \@neuron_definition );
+my $outputs = $network->execute( \@inputs ); # Basic network use
+use AI::ANN::Evolver;
+my $handofgod = new AI::ANN::Evolver (); # See that module for calling details
+my $network2 = $handofgod->mutate($network); # Random mutations
+# Test an entire 'generation' of networks, and let $network and $network2 be
+# among those with the highest fitness function in the generation.
+my $network3 = $handofgod->crossover($network, $network2);
+# Perhaps mutate() each network either before or after the crossover to 
+# introduce variety.
+
+We elected to do this with a new module rather than by extending an existing 
+module because of the extensive differences in the internal structure and the 
+interface that were necessary to accomplish these goals. 
 
 =head1 METHODS
 
 =head2 new
 
-ANN::new(inputs => $inputcount, data => [{ iamanoutput => 0, inputs => {$inputid => $weight, ...}, neurons => {$neuronid => $weight}}, ...])
+ANN::new(input_count => $inputcount, data => [{ iamanoutput => 0, inputs => {$inputid => $weight, ...}, neurons => {$neuronid => $weight}}, ...])
 
-inputs is number of inputs.
+input_count is number of inputs.
 data is an arrayref of neuron definitions.
 The first neuron with iamanoutput=1 is output 0. The second is output 1.
 I hope you're seeing the pattern...
@@ -231,30 +254,6 @@ $network->get_state()
 Returns three arrayrefs, [$input0, ...], [$neuron0, ...], [$output0, ...], 
 corresponding to the data from the last call to execute().
 Intended primarily to assist with debugging.
-
-=head2 get_input_count
-
-$network->get_input_count()
-
-Returns the number of inputs as a scalar.
-
-=head2 get_minvalue
-
-$network->get_minvalue()
-
-Returns the minimum neuron value as a scalar.
-
-=head2 get_maxvalue
-
-$network->get_maxvalue()
-
-Returns the maximum neuron value as a scalar.
-
-=head2 get_afunc
-
-$network->get_afunc()
-
-Returns the activation function as a coderef.
 
 =head2 get_internals
 
