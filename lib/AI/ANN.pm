@@ -1,10 +1,12 @@
 #!/usr/bin/perl
 package AI::ANN;
 BEGIN {
-  $AI::ANN::VERSION = '0.002';
+  $AI::ANN::VERSION = '0.003';
 }
 use strict;
 use warnings;
+
+use 5.014_000;
 # ABSTRACT: an artificial neural network simulator
 
 use AI::ANN::Neuron;
@@ -190,7 +192,7 @@ AI::ANN - an artificial neural network simulator
 
 =head1 VERSION
 
-version 0.002
+version 0.003
 
 =head1 SYNOPSIS
 

@@ -1,12 +1,14 @@
 #!/usr/bin/perl
 package AI::ANN::Neuron;
 BEGIN {
-  $AI::ANN::Neuron::VERSION = '0.002';
+  $AI::ANN::Neuron::VERSION = '0.003';
 }
 # ABSTRACT: a neuron for an artificial neural network simulator
 
 use strict;
 use warnings;
+
+use 5.014_000;
 
 
 sub new {
@@ -81,7 +83,7 @@ AI::ANN::Neuron - a neuron for an artificial neural network simulator
 
 =head1 VERSION
 
-version 0.002
+version 0.003
 
 =head1 METHODS
 

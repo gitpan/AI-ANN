@@ -1,5 +1,8 @@
 Revision History for ANN
 
+0.003     2011-05-31 01:09:32 UTC
+          Minor. Correct the perl version requirement.
+
 0.002     2011-05-31 01:04:53 UTC
           Make many obvious (to a computer, I hope) references to the fact 
           that this requires perl 5.14, to prevent the bloody annoying 

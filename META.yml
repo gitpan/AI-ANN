@@ -15,4 +15,4 @@ name: AI-ANN
 requires:
   Storable: 0
   perl: 5.014000
-version: 0.002
+version: 0.003
