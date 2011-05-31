@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 package AI::ANN::Neuron;
 BEGIN {
-  $AI::ANN::Neuron::VERSION = '0.001';
+  $AI::ANN::Neuron::VERSION = '0.002';
 }
 # ABSTRACT: a neuron for an artificial neural network simulator
 
@@ -27,14 +27,14 @@ sub ready {
 	my $neurons = shift;
 
 	foreach my $id (keys $self->{'inputs'}) { # Requires Perl 5.14 !!!
-		unless ((not exists $self->{'inputs'}->{$id}) || 
+		unless ((not defined $self->{'inputs'}->{$id}) || 
 				$self->{'inputs'}->{$id} == 0 || defined $inputs->[$id])
 				{return 0}
 		# This probably shouldn't ever happen, as it would be weird if our
 		# inputs weren't available yet.
 	}
 	foreach my $id (keys $self->{'neurons'}) {
-		unless ((not exists $self->{'neurons'}->{$id}) || 
+		unless ((not defined $self->{'neurons'}->{$id}) || 
 				$self->{'neurons'}->{$id} == 0 || defined $neurons->{$id})
 				{return 0}
 		# First clause should be redundant, but you can never be too safe
@@ -49,10 +49,10 @@ sub execute {
 	my $neurons = shift;
 	my $output = 0;
 	foreach my $id (keys $self->{'inputs'}) {
-		$output += $self->{'inputs'}->{$id} * ($inputs->[$id] || 0);
+		$output += ($self->{'inputs'}->{$id} || 0 ) * ($inputs->[$id] || 0);
 	}
 	foreach my $id (keys $self->{'neurons'}) {
-		$output += $self->{'neurons'}->{$id} * ($neurons->{$id} || 0);
+		$output += ($self->{'neurons'}->{$id} || 0) * ($neurons->{$id} || 0);
 	}
 	return $output;
 }
@@ -81,7 +81,7 @@ AI::ANN::Neuron - a neuron for an artificial neural network simulator
 
 =head1 VERSION
 
-version 0.001
+version 0.002
 
 =head1 METHODS
 

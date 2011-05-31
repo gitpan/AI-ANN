@@ -1,24 +1,29 @@
 #!/usr/bin/perl
 package AI::ANN;
 BEGIN {
-  $AI::ANN::VERSION = '0.001';
+  $AI::ANN::VERSION = '0.002';
 }
 use strict;
 use warnings;
 # ABSTRACT: an artificial neural network simulator
 
 use AI::ANN::Neuron;
+use Storable qw(dclone);
 
 
 sub new {
 	my $proto = shift;
 	my $class = ref($proto) || $proto;
 	my $self = {};
-	$self->{'inputcount'} = shift;
+	my $data = shift;
+	$self->{'inputcount'} = $data->{'inputs'};
 	$self->{'outputneurons'} = [];
 	$self->{'network'} = [];
 	$self->{'inputs'} = [];
-	my $neuronlist = shift;
+	$self->{'minvalue'} = $data->{'minvalue'} || 0;
+	$self->{'maxvalue'} = $data->{'maxvalue'} || 1;
+	$self->{'afunc'} = $data->{'afunc'} || sub { shift };
+	my $neuronlist = $data->{'data'};
 	for (my $i = 0; $i <= $#{$neuronlist} ; $i++) {
 		push $self->{'outputneurons'}, $i # Requires Perl 5.14 !!!
 			if $neuronlist->[$i]->{'iamanoutput'};
@@ -49,18 +54,22 @@ sub execute {
 		for (my $i = 0; $i <= $#{$net}; $i++) {
 			if ($net->[$i]->{'done'}) {next}
 			if ($net->[$i]->{'object'}->ready($inputs, $neurons)) {
-				$neurons->{$i} = $net->[$i]->{'state'} = 
-					$net->[$i]->{'object'}->execute($inputs, $neurons);
+				my $potential = $net->[$i]->{'object'}->execute($inputs, $neurons);
+				$potential = &{$self->{'afunc'}}($potential);
+				$potential = $self->{'maxvalue'} if $potential > $self->{'maxvalue'};
+				$potential = $self->{'minvalue'} if $potential < $self->{'minvalue'};
+				$neurons->{$i} = $net->[$i]->{'state'} = $potential;
 				$net->[$i]->{'done'} = 1;
 				$progress++;
 			}
 		}
 	} while ($progress); # If the network is feed-forward, we are now finished.
 	
-	my @notdone = grep {$net->[$_]->{'done'} != 1} 0..$#{$net};
+	my @notdone = grep {not (defined $net->[$_]->{'done'} &&
+					$net->[$_]->{'done'} == 1)} 0..$#{$net};
 	my %notdone; # Apparently Perl gets confused if I my the next line
 	@notdone{@notdone} = undef; # %notdone is now a hash with a key for each 
-								   # 'notdone' neuron.
+								# 'notdone' neuron.
 	if ($#notdone > 0) { #This is the part where we deal with loops and bad things
 		my $maxerror = 0;
 		my $loopcounter = 1;
@@ -69,8 +78,16 @@ sub execute {
 											# ones we couldn't solve exactly
 				# We don't care if it's ready now, we're just going to interate
 				# until it stabilizes.
-				$notdone{$i} = $net->[$i]->{'state'} = 
-					$net->[$i]->{'object'}->execute($inputs, $neurons);
+				if (not defined $neurons->{$i} && $i <= $#{$net}) {
+					# Fixes warnings about uninitialized values, but we make 
+					# sure $i is valid first.
+					$neurons->{$i} = 0;
+				}
+				my $potential = $net->[$i]->{'object'}->execute($inputs, $neurons);
+				$potential = &{$self->{'afunc'}}($potential);
+				$potential = $self->{'maxvalue'} if $potential > $self->{'maxvalue'};
+				$potential = $self->{'minvalue'} if $potential < $self->{'minvalue'};
+				$notdone{$i} = $net->[$i]->{'state'} = $potential;
 				# We want to know the absolute change
 				if (abs($neurons->{$i}-$notdone{$i})>$maxerror) {
 					$maxerror = abs($neurons->{$i}-$notdone{$i});
@@ -109,19 +126,37 @@ sub get_input_count {
 }
 
 
+sub get_minvalue {
+	my $self = shift;
+	return $self->{'minvalue'};
+}
+
+
+sub get_maxvalue {
+	my $self = shift;
+	return $self->{'maxvalue'};
+}
+
+
+sub get_afunc {
+	my $self = shift;
+	return $self->{'afunc'};
+}
+
+
 sub get_internals {
 	my $self = shift;
 	my $retval = [];
 	for (my $i = 0; $i <= $#{$self->{'network'}}; $i++) {
 		$retval->[$i] = { iamanoutput => 0,
-						  inputs => $self->{'network'}->[$i]->get_inputs(),
-						  neurons => $self->{'network'}->[$i]->get_neurons()
+						  inputs => $self->{'network'}->[$i]->{'object'}->get_inputs(),
+						  neurons => $self->{'network'}->[$i]->{'object'}->get_neurons()
 						  };
 	}
 	foreach my $i (@{$self->{'outputneurons'}}) {
 		$retval->[$i]->{'iamanoutput'} = 1;
 	}
-	return $retval;
+	return dclone($retval); # Dclone for safety.
 }
 
 
@@ -131,10 +166,10 @@ sub readable {
 					scalar(@{$self->{'network'}}) ." neurons.\n";
 	for (my $i = 0; $i <= $#{$self->{'network'}}; $i++) {
 		$retval .= "Neuron $i\n";
-		while (my ($k, $v) = each $self->{'network'}->[$i]->get_inputs()) {
+		while (my ($k, $v) = each $self->{'network'}->[$i]->{'object'}->get_inputs()) {
 			$retval .= "\tInput from input $k, weight is $v\n";
 		}
-		while (my ($k, $v) = each $self->{'network'}->[$i]->get_neurons()) {
+		while (my ($k, $v) = each $self->{'network'}->[$i]->{'object'}->get_neurons()) {
 			$retval .= "\tInput from neuron $k, weight is $v\n";
 		}
 		if (map {$_ == $i} $self->{'outputneurons'}) {
@@ -155,24 +190,28 @@ AI::ANN - an artificial neural network simulator
 
 =head1 VERSION
 
-version 0.001
+version 0.002
 
 =head1 SYNOPSIS
 
 use AI::ANN;
-my $network = new AI::ANN ( $inputcount, \@neuron_definition );
+my $network = new AI::ANN ( inputs => $inputcount, data => \@neuron_definition );
 my $outputs = $network->execute( \@inputs );
 
 =head1 METHODS
 
 =head2 new
 
-ANN::new( $inputcount, [{ iamanoutput => 0, inputs => {$inputid => $weight, ...}, neurons => {$neuronid => $weight}}, ...] )
+ANN::new({inputs => $inputcount, data => [{ iamanoutput => 0, inputs => {$inputid => $weight, ...}, neurons => {$neuronid => $weight}}, ...]})
 
-Inputcount is number of inputs.
-The arrayref is an arrayref of neuron definitions.
+inputs is number of inputs.
+data is an arrayref of neuron definitions.
 The first neuron with iamanoutput=1 is output 0. The second is output 1.
 I hope you're seeing the pattern...
+minvalue is the minimum value a neuron can pass. Default 0.
+maxvalue is the maximum value a neuron can pass. Default 1.
+afunc is a reference to the activation function. It should be simple and fast.
+    The activation function is processed /before/ minvalue and maxvalue.
 
 =head2 execute
 
@@ -197,6 +236,24 @@ Intended primarily to assist with debugging.
 $network->get_input_count()
 
 Returns the number of inputs as a scalar.
+
+=head2 get_minvalue
+
+$network->get_minvalue()
+
+Returns the minimum neuron value as a scalar.
+
+=head2 get_maxvalue
+
+$network->get_maxvalue()
+
+Returns the maximum neuron value as a scalar.
+
+=head2 get_afunc
+
+$network->get_afunc()
+
+Returns the activation function as a coderef.
 
 =head2 get_internals
 

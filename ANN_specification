@@ -22,7 +22,7 @@ ANN::Neuron
 
 ANN::Evolver
 	evolves the ann
-	from caller, $handofgod = new ANN::Evolver($mutationchance, $mutationamount, $addlinkchance, $killlinkchance, $subcrossoverchance) add should be zero if you want to preserve feed-forwardness
+	from caller, $handofgod = new ANN::Evolver({$mutationchance, $mutationamount, $addlinkchance, $killlinkchance, $subcrossoverchance}) add should be zero if you want to preserve feed-forwardness
 	from caller, $handofgod->crossover($network1, $network2) returns $network3, which inherits 50% of each parent's traits. Each neuron has $subcrossoverchance to inherit 50% of its traits from each parent.
 	from caller, $handofgod->mutate($network3) introduces some random mutations into neuron weights. Has a $mutationchance to change each weight by up to $mutationamount, a $addlinkchance to change an input from zero to up to $mutationamount, and a $killlinkchance to change an input from absolute value less than $mutationamount to zero.
 

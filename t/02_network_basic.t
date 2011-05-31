@@ -9,7 +9,7 @@ BEGIN { use_ok('AI::ANN');
 # Insert your test code below, the Test::More module is use()ed here so read
 # its man page ( perldoc Test::More ) for help writing this test script.
 
-$network=new AI::ANN ( 1, [{ iamanoutput => 1, inputs => {0 => 1}, neurons => {}}]);
+$network=new AI::ANN ({'inputs'=>1, 'data'=>[{ iamanoutput => 1, inputs => {0 => 1}, neurons => {}}], 'maxvalue' => 10});
 
 ok(defined $network, "new() works");
 ok($network->isa("AI::ANN"), "Right class");
@@ -30,8 +30,8 @@ is($neurons->[0], 1, "get_state neurons returns correct element 0");
 is($#{$outputs}, 0, "get_state outputs is correct length");
 is($outputs->[0], 1, "get_state outputs returns correct element 0");
 
-$network=new AI::ANN ( 1, [{ iamanoutput => 0, inputs => {0 => 2}, neurons => {}},
-                       { iamanoutput => 1, inputs => {}, neurons => {0 => 2}}]);
+$network=new AI::ANN ({'inputs'=>1, 'data'=>[{ iamanoutput => 0, inputs => {0 => 2}, neurons => {}},
+                       { iamanoutput => 1, inputs => {}, neurons => {0 => 2}}], 'maxvalue' => 10});
 
 ok(defined $network, "new() works");
 ok($network->isa("AI::ANN"), "Right class");
@@ -52,3 +52,4 @@ is($neurons->[1], 4, "get_state neurons returns correct element 1");
 
 is($#{$outputs}, 0, "get_state outputs is correct length");
 is($outputs->[0], 4, "get_state outputs returns correct element 0");
+

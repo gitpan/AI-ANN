@@ -1,5 +1,29 @@
 Revision History for ANN
 
+0.002     2011-05-31 01:04:53 UTC
+          Make many obvious (to a computer, I hope) references to the fact 
+          that this requires perl 5.14, to prevent the bloody annoying 
+          CPAN Testers emails. Note that I chose to do this rather than 
+          make the module compatible with earlier versions.
+
+          Add two parameters for min and max neuron output values, default to 
+          0 and 1. Conveniently, forget to actually implement that. 
+
+          Less conveniently, remember to implement the above.
+          
+          While implementing the above, also implement an activation function 
+          in the form of a coderef passed to the AI::ANN constructor.
+          
+          Add the Evolver module, and tests for it. Ensure that the AI::ANN
+          objects that Evolver returns have the same parameters as did the 
+          original.
+
+          Chase down a few bugs caused by a combination of evil references
+          and me changing the structure of my objects halfway through coding.
+          
+          Yell at myself a little bit for taunting the ghost of the (not yet 
+          dead) Larry Wall, by claiming that I was 'halfway through coding'.
+
 0.001     2011-05-27 03:04:06 UTC
           Initial release. ANN and ANN::Neuron working, basic test suite and
           documentation.
