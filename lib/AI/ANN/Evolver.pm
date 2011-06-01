@@ -1,14 +1,12 @@
 #!/usr/bin/perl
 package AI::ANN::Evolver;
 BEGIN {
-  $AI::ANN::Evolver::VERSION = '0.005';
+  $AI::ANN::Evolver::VERSION = '0.006';
 }
 # ABSTRACT: an evolver for an artificial neural network simulator
 
 use strict;
 use warnings;
-
-use 5.014_000;
 
 use Moose;
 
@@ -23,6 +21,8 @@ has 'mutation_amount' => (is => 'rw', isa => 'Num', default => 0);
 has 'add_link_chance' => (is => 'rw', isa => 'Num', default => 0);
 has 'kill_link_chance' => (is => 'rw', isa => 'Num', default => 0);
 has 'sub_crossover_chance' => (is => 'rw', isa => 'Num', default => 0);
+has 'gaussian_tau' => (is => 'rw', isa => 'CodeRef', default => sub{sub{1/sqrt(2*sqrt(shift))}});
+has 'gaussian_tau_prime' => (is => 'rw', isa => 'CodeRef', default => sub{sub{1/sqrt(2*shift)}});
 
 
 sub crossover {
@@ -197,6 +197,58 @@ sub mutate {
 	return $network;
 }
 
+
+sub mutate_gaussian {
+    my $self = shift;
+    my $network = shift;
+	my $class = ref($network);
+	my $networkdata = $network->get_internals();
+	my $inputcount = $network->input_count();
+	my $minvalue = $network->minvalue();
+	my $maxvalue = $network->maxvalue();
+	my $afunc = $network->afunc();
+	my $neuroncount = $#{$networkdata}; # BTW did you notice that this 
+										# isn't what it says it is?
+	$networkdata = dclone($networkdata); # For safety.
+	for (my $i = 0; $i <= $neuroncount; $i++) {
+        my $n = 0;
+        for (my $j = 0; $j < $inputcount; $j++) {
+			my $weight = $networkdata->[$i]->{'inputs'}->{$j};
+            $n++ if $weight;
+        }
+        for (my $j = 0; $j <= $neuroncount; $j++) {
+			my $weight = $networkdata->[$i]->{'neurons'}->{$j};
+            $n++ if $weight;
+        }
+        next if $n == 0;
+        my $tau = &{$self->{'gaussian_tau'}}($n);
+        my $tau_prime = &{$self->{'gaussian_tau_prime'}}($n);
+        my $random1 = 2 * rand() - 1;
+        for (my $j = 0; $j < $inputcount; $j++) {
+			my $weight = $networkdata->[$i]->{'inputs'}->{$j};
+            next unless $weight;
+            my $random2 = 2 * rand() - 1;
+			$networkdata->[$i]->{'eta_inputs'}->{$j} *= exp($tau_prime*$random1+$tau*$random2);
+			$networkdata->[$i]->{'inputs'}->{$j} += $networkdata->[$i]->{'eta_inputs'}->{$j}*$random2;
+        }
+        for (my $j = 0; $j <= $neuroncount; $j++) {
+			my $weight = $networkdata->[$i]->{'neurons'}->{$j};
+            next unless $weight;
+            my $random2 = 2 * rand() - 1;
+			$networkdata->[$i]->{'eta_neurons'}->{$j} *= exp($tau_prime*$random1+$tau*$random2);
+			$networkdata->[$i]->{'neurons'}->{$j} += $networkdata->[$i]->{'eta_neurons'}->{$j}*$random2;
+        }
+    }
+	# All done. Let's pack it back into an object and let someone else deal
+	# with it.
+	$network = $class->new ( 'inputs' => $inputcount, 
+								 'data' => $networkdata,
+								 'minvalue' => $minvalue,
+								 'maxvalue' => $maxvalue,
+								 'afunc' => $afunc);
+	return $network;
+}
+
 1;
 
 
@@ -209,7 +261,7 @@ AI::ANN::Evolver - an evolver for an artificial neural network simulator
 
 =head1 VERSION
 
-version 0.005
+version 0.006
 
 =head1 METHODS
 
@@ -248,6 +300,9 @@ min_value is the smallest acceptable weight. It must be less than or equal to
 	become an epsilon above min_value. This is so that we don't accidentally 
 	set a weight to zero, thereby killing the link.
 max_value is the largest acceptable weight. It must be greater than zero.
+gaussian_tau and gaussian_tau_prime are the terms to the gaussian mutation 
+    method. They are coderefs which accept one parameter, n, the number of
+    non-zero-weight inputs to the given neuron.
 
 =head2 crossover
 
@@ -258,6 +313,10 @@ As long as the same neurons in network1 and network2 are outputs, network3
 	will always have those same outputs.
 This method, at least if the sub_crossover_chance is nonzero, expects neurons 
 	to be labeled from zero to n. 
+You probably don't want to do this. This is the least effective way to evolve 
+    neural networks. This is because, due to the hidden intermediate steps, it 
+    is possible for two networks which output exactly the same with completely
+    different internal representations.
 
 =head2 mutate
 
@@ -276,6 +335,17 @@ Returns a version of $network mutated according to the parameters set for
 	are killed. Since new links tend to be killed particularly quickly, it may 
 	be wise to add an additional optional multiplier to mutation_amount just 
 	for new links.
+
+=head2 mutate_gaussian
+
+$evolver->mutate_gaussian($network)
+
+Returns a version of $network modified according to the Gaussian mutation 
+    rules discussed in X. Yao, Evolving Artifical Neural Networks, and X. Yao 
+    and Y. Liu, Fast Evolution Strategies. Uses the gaussian_tau and 
+    gaussian_tau_prime values from the initializer if they are present, or
+    sane defaults proposed by the above. These are both functions of 'n', the 
+    number of inputs to each neuron with nonzero weight.
 
 =head1 AUTHOR
 

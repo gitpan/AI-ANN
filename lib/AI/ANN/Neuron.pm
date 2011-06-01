@@ -1,29 +1,34 @@
 #!/usr/bin/perl
 package AI::ANN::Neuron;
 BEGIN {
-  $AI::ANN::Neuron::VERSION = '0.005';
+  $AI::ANN::Neuron::VERSION = '0.006';
 }
 # ABSTRACT: a neuron for an artificial neural network simulator
 
 use strict;
 use warnings;
 
-use 5.014_000;
 use Moose;
 
 
 has 'id' => (is => 'rw', isa => 'Int');
 has 'inputs' => (is => 'rw', isa => 'HashRef[Num]', required => 1);
 has 'neurons' => (is => 'rw', isa => 'HashRef[Num]', required => 1);
+has 'eta_inputs' => (is => 'rw', isa => 'HashRef[Num]');
+has 'eta_neurons' => (is => 'rw', isa => 'HashRef[Num]');
 
 around BUILDARGS => sub {
 	my $orig = shift;
 	my $class = shift;
 	my %data;
-	if ( @_ == 2 && ref $_[0] eq 'HASH' && ref $_[1] eq 'HASH' ) {
+	if ( @_ >= 2 && ref $_[0] eq 'HASH' && ref $_[1] eq 'HASH' ) {
 		%data = ('inputs' => $_[0], 'neurons' => $_[1]);
-	} elsif ( @_ == 3 && ref $_[1] eq 'HASH' && ref $_[2] eq 'HASH' ) {
+		$data{'eta_inputs'} = $_[2] if defined $_[2];
+		$data{'eta_neurons'} = $_[3] if defined $_[3];
+	} elsif ( @_ >= 3 && ref $_[1] eq 'HASH' && ref $_[2] eq 'HASH' ) {
 		%data = ('id' => $_[0], 'inputs' => $_[1], 'neurons' => $_[2]);
+		$data{'eta_inputs'} = $_[3] if defined $_[3];
+		$data{'eta_neurons'} = $_[4] if defined $_[4];
 	} elsif ( @_ == 1 && ref $_[0] eq 'HASH' ) {
 		%data = %{$_[0]};
 	} else {
@@ -48,14 +53,14 @@ sub ready {
 	my $inputs = shift;
 	my $neurons = shift;
 
-	foreach my $id (keys $self->{'inputs'}) { # Requires Perl 5.14 !!!
+	foreach my $id (keys %{$self->{'inputs'}}) {
 		unless ((not defined $self->{'inputs'}->{$id}) || 
 				$self->{'inputs'}->{$id} == 0 || defined $inputs->[$id])
 				{return 0}
 		# This probably shouldn't ever happen, as it would be weird if our
 		# inputs weren't available yet.
 	}
-	foreach my $id (keys $self->{'neurons'}) {
+	foreach my $id (keys %{$self->{'neurons'}}) {
 		unless ((not defined $self->{'neurons'}->{$id}) || 
 				$self->{'neurons'}->{$id} == 0 || defined $neurons->{$id})
 				{return 0}
@@ -70,10 +75,10 @@ sub execute {
 	my $inputs = shift;
 	my $neurons = shift;
 	my $output = 0;
-	foreach my $id (keys $self->{'inputs'}) {
+	foreach my $id (keys %{$self->{'inputs'}}) {
 		$output += ($self->{'inputs'}->{$id} || 0 ) * ($inputs->[$id] || 0);
 	}
-	foreach my $id (keys $self->{'neurons'}) {
+	foreach my $id (keys %{$self->{'neurons'}}) {
 		$output += ($self->{'neurons'}->{$id} || 0) * ($neurons->{$id} || 0);
 	}
 	return $output;
@@ -91,7 +96,7 @@ AI::ANN::Neuron - a neuron for an artificial neural network simulator
 
 =head1 VERSION
 
-version 0.005
+version 0.006
 
 =head1 METHODS
 
@@ -102,6 +107,9 @@ AI::ANN::Neuron->new( $neuronid, {$inputid => $weight, ...}, {$neuronid => $weig
 Weights may be whatever the user chooses. Note that packages that use this 
 one may place their own restructions. Neurons and inputs are assumed to be 
 zero-indexed.
+
+eta_inputs and eta_neurons are optional, required only if you wish to use the 
+Gaussian mutation in AI::ANN::Evolver.
 
 =head2 ready
 

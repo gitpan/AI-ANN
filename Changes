@@ -1,5 +1,15 @@
 Revision History for ANN
 
+0.006     2011-06-01 16:08:04 UTC
+          Remove dependency on perl 5.14, because apparently no one has that 
+          installed yet. Get with the times, people! (Debian is still on 5.10)
+
+          Add mutate_gaussian to the methods available in the evolver, and 
+          allow the population of the eta_ values in AI::ANN. 
+
+          Add a sternly worded comment to the evolver warning against the use 
+          of crossover.
+
 0.005     2011-05-31 20:18:02 UTC
           Convert to use Moose. I'm told that this is better. There are a few 
           neat things (not having to write accessors, and apparently 

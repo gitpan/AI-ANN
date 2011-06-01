@@ -1,6 +1,6 @@
 # change 'tests => 1' to 'tests => last_test_to_print';
 
-use Test::More tests => 53;
+use Test::More tests => 60;
 BEGIN { use_ok('AI::ANN');
 	use_ok('AI::ANN::Evolver'); };
 
@@ -63,10 +63,10 @@ $evolver=new AI::ANN::Evolver ({mutation_chance => 0.5,
 	0.2, min_value => 0, max_value => 4});
 
 $network1=new AI::ANN ('inputs'=>1,
-		   'data'=>[{ iamanoutput => 0, inputs => {0 => 2}, neurons => {}},
-                            { iamanoutput => 0, inputs => {0 => 1}, neurons => {0 => 1}},
-                            { iamanoutput => 1, inputs => {}, neurons => {0 => 2, 1 => 1}}, 
-                            { iamanoutput => 1, inputs => {}, neurons => {0 => 3}}]);
+		   'data'=>[{ iamanoutput => 0, inputs => {0 => 2}, neurons => {}, eta_inputs => {0 => 0.5}, eta_neurons => {}},
+                            { iamanoutput => 0, inputs => {0 => 1}, neurons => {0 => 1}, eta_inputs => {0 => 0.3}, eta_neurons => {0 => 0.7}},
+                            { iamanoutput => 1, inputs => {}, neurons => {0 => 2, 1 => 1}, eta_inputs => {}, eta_neurons => {0 => 0.4, 1 => 0.6}}, 
+                            { iamanoutput => 1, inputs => {}, neurons => {0 => 3}, eta_inputs => {}, eta_neurons => {0 => 0.8}}]);
 $network2=new AI::ANN ('inputs'=>1,
 		   'data'=>[{ iamanoutput => 0, inputs => {0 => 1}, neurons => {}},
                             { iamanoutput => 0, inputs => {0 => 2}, neurons => {0 => 2}},
@@ -113,7 +113,7 @@ is($#{$inputs}, 0, "get_state inputs after crossover is correct length");
 is($#{$neurons}, 3, "get_state neurons after crossover is correct length");
 is($#{$outputs}, 1, "get_state outputs after crossover is correct length");
 
-# Finally, we'll test mutate
+# Next, we'll test mutate
 
 $network4=$evolver->mutate($network1);
 
@@ -129,4 +129,21 @@ is($#{$out}, 1, "execute() output after mutate is the right length");
 is($#{$inputs}, 0, "get_state inputs after mutate is correct length");
 is($#{$neurons}, 3, "get_state neurons after mutate is correct length");
 is($#{$outputs}, 1, "get_state outputs after mutate is correct length");
+
+# Next, we'll test mutate_gaussian
+
+$network5=$evolver->mutate_gaussian($network1);
+
+ok(defined $network5, "mutate_gaussian() works");
+ok($network5->isa("AI::ANN"), "Right class");
+
+ok($out=$network5->execute([1]), "mutate_gaussiand, executed and still alive");
+
+is($#{$out}, 1, "execute() output after mutate_gaussian is the right length");
+
+($inputs, $neurons, $outputs) = $network5->get_state();
+
+is($#{$inputs}, 0, "get_state inputs after mutate_gaussian is correct length");
+is($#{$neurons}, 3, "get_state neurons after mutate_gaussian is correct length");
+is($#{$outputs}, 1, "get_state outputs after mutate_gaussian is correct length");
 

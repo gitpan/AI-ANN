@@ -14,5 +14,4 @@ meta-spec:
 name: AI-ANN
 requires:
   Storable: 0
-  perl: 5.014000
-version: 0.005
+version: 0.006

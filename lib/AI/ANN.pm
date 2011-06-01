@@ -1,12 +1,11 @@
 #!/usr/bin/perl
 package AI::ANN;
 BEGIN {
-  $AI::ANN::VERSION = '0.005';
+  $AI::ANN::VERSION = '0.006';
 }
 use strict;
 use warnings;
 
-use 5.014_000;
 # ABSTRACT: an artificial neural network simulator
 
 use Moose;
@@ -44,14 +43,17 @@ around BUILDARGS => sub {
 	$data{'outputneurons'} = [];
 	$data{'network'} = [];
 	for (my $i = 0; $i <= $#{$neuronlist} ; $i++) {
-		push $data{'outputneurons'}, $i # Requires Perl 5.14 !!!
+		push @{$data{'outputneurons'}}, $i
 			if $neuronlist->[$i]->{'iamanoutput'};
-		$data{'network'}->[$i]->{'object'} = 
-			new AI::ANN::Neuron( 
+		my @pass = (
 				$i, 
 				$neuronlist->[$i]->{'inputs'}, 
-				$neuronlist->[$i]->{'neurons'} 
-				);
+				$neuronlist->[$i]->{'neurons'} );
+		push @pass, $neuronlist->[$i]->{'eta_inputs'}, 
+			$neuronlist->[$i]->{'eta_neurons'}
+			if defined $neuronlist->[$i]->{'eta_neurons'};
+		$data{'network'}->[$i]->{'object'} = 
+			new AI::ANN::Neuron( @pass );
 	}
 	delete $data{'data'};
 	return $class->$orig(%data);
@@ -145,7 +147,9 @@ sub get_internals {
 	for (my $i = 0; $i <= $#{$self->{'network'}}; $i++) {
 		$retval->[$i] = { iamanoutput => 0,
 						  inputs => $self->{'network'}->[$i]->{'object'}->inputs(),
-						  neurons => $self->{'network'}->[$i]->{'object'}->neurons()
+						  neurons => $self->{'network'}->[$i]->{'object'}->neurons(),
+						  eta_inputs => $self->{'network'}->[$i]->{'object'}->eta_inputs(),
+						  eta_neurons => $self->{'network'}->[$i]->{'object'}->eta_neurons()
 						  };
 	}
 	foreach my $i (@{$self->{'outputneurons'}}) {
@@ -161,10 +165,10 @@ sub readable {
 					scalar(@{$self->{'network'}}) ." neurons.\n";
 	for (my $i = 0; $i <= $#{$self->{'network'}}; $i++) {
 		$retval .= "Neuron $i\n";
-		while (my ($k, $v) = each $self->{'network'}->[$i]->{'object'}->inputs()) {
+		while (my ($k, $v) = each %{$self->{'network'}->[$i]->{'object'}->inputs()}) {
 			$retval .= "\tInput from input $k, weight is $v\n";
 		}
-		while (my ($k, $v) = each $self->{'network'}->[$i]->{'object'}->neurons()) {
+		while (my ($k, $v) = each %{$self->{'network'}->[$i]->{'object'}->neurons()}) {
 			$retval .= "\tInput from neuron $k, weight is $v\n";
 		}
 		if (map {$_ == $i} $self->{'outputneurons'}) {
@@ -185,7 +189,7 @@ AI::ANN - an artificial neural network simulator
 
 =head1 VERSION
 
-version 0.005
+version 0.006
 
 =head1 SYNOPSIS
 
