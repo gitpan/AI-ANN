@@ -23,8 +23,8 @@ is($out->[0], 4, "execute() output for two neurons has the correct value");
 $data = $network->get_internals();
 
 $data->[1]->{'iamanoutput'} = 0;
-$data->[1]->{'inputs'}->{0} = 8;
-$data->[1]->{'neurons'}->{0} = 0;
+$data->[1]->{'inputs'}->[0] = 8;
+$data->[1]->{'neurons'}->[0] = 0;
 
 ok($out=$network->execute([1]), "executed and still alive");
 

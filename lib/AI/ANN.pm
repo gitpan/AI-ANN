@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 package AI::ANN;
 BEGIN {
-  $AI::ANN::VERSION = '0.006';
+  $AI::ANN::VERSION = '0.007';
 }
 use strict;
 use warnings;
@@ -21,9 +21,12 @@ has 'network' => (is => 'ro', isa => 'ArrayRef[HashRef]', required => 1);
 # object => AI::ANN::Neuron
 # and has several other elements
 has 'inputs' => (is => 'ro', isa => 'ArrayRef[Int]');
+has 'rawpotentials' => (is => 'ro', isa => 'ArrayRef[Int]');
 has 'minvalue' => (is => 'rw', isa => 'Int', default => 0);
 has 'maxvalue' => (is => 'rw', isa => 'Int', default => 1);
 has 'afunc' => (is => 'rw', isa => 'CodeRef', default => sub {sub {shift}});
+has 'dafunc' => (is => 'rw', isa => 'CodeRef', default => sub {sub {1}});
+has 'backprop_eta' => (is => 'rw', isa => 'Num', default => 0.1);
 
 around BUILDARGS => sub {
 	my $orig = shift;
@@ -63,23 +66,26 @@ around BUILDARGS => sub {
 sub execute {
 	my $self = shift;
 	my $inputs = $self->{'inputs'} = shift;
-	my $neurons = {};
+	# Don't bother dereferencing $inputs only to rereference a lot
+	my @neurons = ();
 	my $net = $self->{'network'}; # For less typing
-	for (my $i = 0; $i <= $#{$net}; $i++) {
+	my $lastneuron = $#{$net};
+	foreach my $i (0..$lastneuron) {
 		delete $net->[$i]->{'done'};
 		delete $net->[$i]->{'state'};
 	}
 	my $progress = 0;
 	do {
 		$progress = 0;
-		for (my $i = 0; $i <= $#{$net}; $i++) {
+		foreach my $i (0..$lastneuron) {
 			if ($net->[$i]->{'done'}) {next}
-			if ($net->[$i]->{'object'}->ready($inputs, $neurons)) {
-				my $potential = $net->[$i]->{'object'}->execute($inputs, $neurons);
+			if ($net->[$i]->{'object'}->ready($inputs, \@neurons)) {
+				my $potential = $net->[$i]->{'object'}->execute($inputs, \@neurons);
+                $self->{'rawpotentials'}->[$i] = $potential;
 				$potential = &{$self->{'afunc'}}($potential);
 				$potential = $self->{'maxvalue'} if $potential > $self->{'maxvalue'};
 				$potential = $self->{'minvalue'} if $potential < $self->{'minvalue'};
-				$neurons->{$i} = $net->[$i]->{'state'} = $potential;
+				$neurons[$i] = $net->[$i]->{'state'} = $potential;
 				$net->[$i]->{'done'} = 1;
 				$progress++;
 			}
@@ -87,38 +93,40 @@ sub execute {
 	} while ($progress); # If the network is feed-forward, we are now finished.
 	
 	my @notdone = grep {not (defined $net->[$_]->{'done'} &&
-					$net->[$_]->{'done'} == 1)} 0..$#{$net};
-	my %notdone; # Apparently Perl gets confused if I my the next line
-	@notdone{@notdone} = undef; # %notdone is now a hash with a key for each 
+							 $net->[$_]->{'done'} == 1)} 0..$lastneuron;
+	my @neuronstemp = ();
+#	my %notdone; # Apparently Perl gets confused if I my the next line
+#	@notdone{@notdone} = undef; # %notdone is now a hash with a key for each 
 								# 'notdone' neuron.
 	if ($#notdone > 0) { #This is the part where we deal with loops and bad things
 		my $maxerror = 0;
 		my $loopcounter = 1;
 		while (1) {
-			foreach my $i (keys %notdone) { # Only bother iterating over the
+			foreach my $i (@notdone) { # Only bother iterating over the
 											# ones we couldn't solve exactly
 				# We don't care if it's ready now, we're just going to interate
 				# until it stabilizes.
-				if (not defined $neurons->{$i} && $i <= $#{$net}) {
+				if (not defined $neurons[$i] && $i <= $lastneuron) {
 					# Fixes warnings about uninitialized values, but we make 
 					# sure $i is valid first.
-					$neurons->{$i} = 0;
+					$neurons[$i] = 0;
 				}
-				my $potential = $net->[$i]->{'object'}->execute($inputs, $neurons);
+				my $potential = $net->[$i]->{'object'}->execute($inputs, \@neurons);
+                $self->{'rawpotentials'}->[$i] = $potential;
 				$potential = &{$self->{'afunc'}}($potential);
 				$potential = $self->{'maxvalue'} if $potential > $self->{'maxvalue'};
 				$potential = $self->{'minvalue'} if $potential < $self->{'minvalue'};
-				$notdone{$i} = $net->[$i]->{'state'} = $potential;
+				$neuronstemp[$i] = $net->[$i]->{'state'} = $potential;
 				# We want to know the absolute change
-				if (abs($neurons->{$i}-$notdone{$i})>$maxerror) {
-					$maxerror = abs($neurons->{$i}-$notdone{$i});
+				if (abs($neurons[$i]-$neuronstemp[$i])>$maxerror) {
+					$maxerror = abs($neurons[$i]-$neuronstemp[$i]);
 				}
 			}
-			foreach my $i (keys %notdone) { 
+			foreach my $i (0..$lastneuron) { 
 				# Update $neurons, since that is what gets passed to execute
-				$neurons->{$i}=$notdone{$i};
+				$neurons[$i]=$neuronstemp[$i];
 			}
-			if ($maxerror < 0.0001 && $loopcounter >= 5) {last}
+			if (($maxerror < 0.0001 && $loopcounter >= 5) || $loopcounter > 250) {last}
 			$loopcounter++;
 			$maxerror=0;
 		}
@@ -126,7 +134,7 @@ sub execute {
 	
 	# Ok, hopefully all the neurons have happy values by now.
 	# Get the output values for neurons corresponding to outputneurons
-	my @output = map {$net->[$_]->{'state'}} @{$self->{'outputneurons'}};
+	my @output = map {$neurons[$_]} @{$self->{'outputneurons'}};
 	return \@output;
 }
 
@@ -178,6 +186,46 @@ sub readable {
 	return $retval;
 }
 
+
+sub backprop {
+    my $self = shift;
+    my $inputs = shift;
+    my $desired = shift;
+    my $actual = $self->execute($inputs);
+    my $net = $self->{'network'};
+    my $neuroncount = $#{$net};
+    my $deltas = [];
+    my $i = 0;
+    foreach my $neuron (@{$self->outputneurons()}) {
+        $deltas->[$neuron] = $desired->[$i] - $actual->[$i];
+        $i++;
+    }
+    my $progress = 0;
+    foreach my $neuron (reverse 0..$neuroncount) {
+#        next if $deltas->[$neuron];
+        foreach my $i (reverse $neuron..$neuroncount) {
+            my $weight = $net->[$i]->{'object'}->neurons()->[$neuron];
+            if (defined $weight && $weight != 0) {
+                $deltas->[$neuron] += $weight * ($deltas->[$i] || 0);
+            }
+        }
+    } # Finished generating deltas
+    foreach my $neuron (0..$neuroncount) {
+        my $inputinputs = $net->[$neuron]->{'object'}->inputs();
+        my $neuroninputs = $net->[$neuron]->{'object'}->neurons();
+        foreach my $i (0..$#{$inputinputs}) {
+            $inputinputs->[$i] += $inputs->[$i]*$self->{'backprop_eta'}*$deltas->[$neuron]*&{$self->{'dafunc'}}($self->{'rawpotentials'}->[$neuron]);
+        }
+        foreach my $i (0..$#{$neuroninputs}) {
+            $neuroninputs->[$i] += $net->[$i]->{'state'}*$self->{'backprop_eta'}*($deltas->[$neuron] || 0)*&{$self->{'dafunc'}}($self->{'rawpotentials'}->[$neuron])
+        }
+        $net->[$neuron]->{'object'}->inputs($inputinputs);
+        $net->[$neuron]->{'object'}->neurons($neuroninputs);
+    } # Finished changing weights.
+}
+
+__PACKAGE__->meta->make_immutable;
+
 1;
 
 __END__
@@ -189,7 +237,7 @@ AI::ANN - an artificial neural network simulator
 
 =head1 VERSION
 
-version 0.006
+version 0.007
 
 =head1 SYNOPSIS
 
@@ -270,6 +318,14 @@ Returns the weights in a not-human-consumable format.
 $network->readable()
 
 Returns a human-friendly and diffable description of the network.
+
+=head2 backprop
+
+$network->backprop(\@inputs, \@outputs)
+
+Performs back-propagation learning on the neural network with the provided 
+training data. Uses backprop_eta as a training rate and dafunc as the 
+derivative of the activation function.
 
 =head1 AUTHOR
 

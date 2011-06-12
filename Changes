@@ -1,5 +1,17 @@
 Revision History for ANN
 
+0.007     2011-06-12 04:44:46 UTC
+          Add backprop, not tested.
+
+          Evolver now allows you to pass a coderef for mutation_amount. It 
+          will be evaluated with no arguments. If you pass a number instead, 
+          it will be coerced into a uniform random value up to +/- your value.
+
+          Change a few things from hashrefs to arrayrefs internally. Fully 
+          back-compatibile, but I hope this will speed up a few things.
+
+          Fix dependencies.
+
 0.006     2011-06-01 16:08:04 UTC
           Remove dependency on perl 5.14, because apparently no one has that 
           installed yet. Get with the times, people! (Debian is still on 5.10)

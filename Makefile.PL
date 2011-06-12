@@ -20,9 +20,11 @@ my %WriteMakefileArgs = (
   'LICENSE' => 'gpl',
   'NAME' => 'AI::ANN',
   'PREREQ_PM' => {
+    'Math::Libm' => '0',
+    'Moose' => '2.00',
     'Storable' => '0'
   },
-  'VERSION' => '0.006',
+  'VERSION' => '0.007',
   'test' => {
     'TESTS' => 't/*.t'
   }

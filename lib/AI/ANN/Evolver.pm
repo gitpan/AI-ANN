@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 package AI::ANN::Evolver;
 BEGIN {
-  $AI::ANN::Evolver::VERSION = '0.006';
+  $AI::ANN::Evolver::VERSION = '0.007';
 }
 # ABSTRACT: an evolver for an artificial neural network simulator
 
@@ -12,17 +12,34 @@ use Moose;
 
 use AI::ANN;
 use Storable qw(dclone);
+use Math::Libm qw(tan);
 
 
 has 'max_value' => (is => 'rw', isa => 'Num', default => 1);
 has 'min_value' => (is => 'rw', isa => 'Num', default => 0);
 has 'mutation_chance' => (is => 'rw', isa => 'Num', default => 0);
-has 'mutation_amount' => (is => 'rw', isa => 'Num', default => 0);
+has 'mutation_amount' => (is => 'rw', isa => 'CodeRef', default => sub{sub{2 * rand() - 1}});
 has 'add_link_chance' => (is => 'rw', isa => 'Num', default => 0);
 has 'kill_link_chance' => (is => 'rw', isa => 'Num', default => 0);
 has 'sub_crossover_chance' => (is => 'rw', isa => 'Num', default => 0);
 has 'gaussian_tau' => (is => 'rw', isa => 'CodeRef', default => sub{sub{1/sqrt(2*sqrt(shift))}});
 has 'gaussian_tau_prime' => (is => 'rw', isa => 'CodeRef', default => sub{sub{1/sqrt(2*shift)}});
+
+around BUILDARGS => sub {
+    my $orig = shift;
+    my $class = shift;
+    my %data;
+    if ( @_ == 1 && ref $_[0] eq 'HASH' ) {
+        %data = %{$_[0]};
+    } else {
+        %data = @_;
+    }
+    if ((not (ref $data{'mutation_amount'})) || ref $data{'mutation_amount'} ne 'CODE') {
+	my $range = $data{'mutation_amount'};
+        $data{'mutation_amount'} = sub { $range * (rand() * 2 - 1) };
+    }
+    return $class->$orig(%data);
+};
 
 
 sub crossover {
@@ -34,6 +51,7 @@ sub crossover {
 	my $minvalue = $network1->minvalue();
 	my $maxvalue = $network1->maxvalue();
 	my $afunc = $network1->afunc();
+	my $dafunc = $network1->dafunc();
 	# They better have the same number of inputs
 	$inputcount == $network2->input_count() || return -1; 
 	my $networkdata1 = $network1->get_internals();
@@ -45,22 +63,22 @@ sub crossover {
 
 	for (my $i = 0; $i <= $neuroncount; $i++) {
 		if (rand() < $self->{'sub_crossover_chance'}) {
-			$networkdata3->[$i] = { 'inputs' => {}, 'neurons' => {} };
+			$networkdata3->[$i] = { 'inputs' => [], 'neurons' => [] };
 			$networkdata3->[$i]->{'iamanoutput'} = 
 				$networkdata1->[$i]->{'iamanoutput'};
 			for (my $j = 0; $j < $inputcount; $j++) {
-				$networkdata3->[$i]->{'inputs'}->{$j} = 
+				$networkdata3->[$i]->{'inputs'}->[$j] = 
 					(rand() > 0.5) ?
-					$networkdata1->[$i]->{'inputs'}->{$j} :
-					$networkdata2->[$i]->{'inputs'}->{$j};
+					$networkdata1->[$i]->{'inputs'}->[$j] :
+					$networkdata2->[$i]->{'inputs'}->[$j];
 				# Note to self: Don't get any silly ideas about dclone()ing 
 				# these, that's a good way to waste half an hour debugging.
 			}
 			for (my $j = 0; $j <= $neuroncount; $j++) {
-				$networkdata3->[$i]->{'neurons'}->{$j} =
+				$networkdata3->[$i]->{'neurons'}->[$j] =
 					(rand() > 0.5) ?
-					$networkdata1->[$i]->{'neurons'}->{$j} :
-					$networkdata2->[$i]->{'neurons'}->{$j};
+					$networkdata1->[$i]->{'neurons'}->[$j] :
+					$networkdata2->[$i]->{'neurons'}->[$j];
 			}
 		} else {
 			$networkdata3->[$i] = dclone(
@@ -73,7 +91,8 @@ sub crossover {
 								  'data' => $networkdata3,
 								  'minvalue' => $minvalue,
 								  'maxvalue' => $maxvalue,
-								  'afunc' => $afunc);
+								  'afunc' => $afunc,
+								  'dafunc' => $dafunc);
 	return $network3;
 }
 
@@ -87,13 +106,14 @@ sub mutate {
 	my $minvalue = $network->minvalue();
 	my $maxvalue = $network->maxvalue();
 	my $afunc = $network->afunc();
+	my $dafunc = $network->dafunc();
 	my $neuroncount = $#{$networkdata}; # BTW did you notice that this 
 										# isn't what it says it is?
 	$networkdata = dclone($networkdata); # For safety.
 	for (my $i = 0; $i <= $neuroncount; $i++) {
 		# First each input/neuron pair
 		for (my $j = 0; $j < $inputcount; $j++) {
-			my $weight = $networkdata->[$i]->{'inputs'}->{$j};
+			my $weight = $networkdata->[$i]->{'inputs'}->[$j];
 			if (defined $weight && $weight != 0) {
 				if (rand() < $self->{'mutation_chance'}) {
 					$weight += (rand() * 2 - 1) * $self->{'mutation_amount'};
@@ -134,14 +154,14 @@ sub mutate {
 			}
 			# This would be a bloody nightmare if we hadn't done that dclone 
 			# magic before. But look how easy it is!
-			$networkdata->[$i]->{'inputs'}->{$j} = $weight;
+			$networkdata->[$i]->{'inputs'}->[$j] = $weight;
 		}
 		# Now each neuron/neuron pair
 		for (my $j = 0; $j <= $neuroncount; $j++) {
 		# As a reminder to those cursed with the duty of maintaining this code:
 		# This should be an exact copy of the code above, except that 'inputs' 
 		# would be replaced with 'neurons'. 
-			my $weight = $networkdata->[$i]->{'neurons'}->{$j};
+			my $weight = $networkdata->[$i]->{'neurons'}->[$j];
 			if (defined $weight && $weight != 0) {
 				if (rand() < $self->{'mutation_chance'}) {
 					$weight += (rand() * 2 - 1) * $self->{'mutation_amount'};
@@ -183,17 +203,18 @@ sub mutate {
 			}
 			# This would be a bloody nightmare if we hadn't done that dclone 
 			# magic before. But look how easy it is!
-			$networkdata->[$i]->{'neurons'}->{$j} = $weight;
+			$networkdata->[$i]->{'neurons'}->[$j] = $weight;
 		}
 		# That was rather tiring, and that's only for the first neuron!!
 	}
 	# All done. Let's pack it back into an object and let someone else deal
 	# with it.
 	$network = $class->new ( 'inputs' => $inputcount, 
-								 'data' => $networkdata,
-								 'minvalue' => $minvalue,
-								 'maxvalue' => $maxvalue,
-								 'afunc' => $afunc);
+							 'data' => $networkdata,
+							 'minvalue' => $minvalue,
+							 'maxvalue' => $maxvalue,
+							 'afunc' => $afunc,
+							 'dafunc' => $dafunc);
 	return $network;
 }
 
@@ -207,17 +228,18 @@ sub mutate_gaussian {
 	my $minvalue = $network->minvalue();
 	my $maxvalue = $network->maxvalue();
 	my $afunc = $network->afunc();
+	my $dafunc = $network->dafunc();
 	my $neuroncount = $#{$networkdata}; # BTW did you notice that this 
 										# isn't what it says it is?
 	$networkdata = dclone($networkdata); # For safety.
 	for (my $i = 0; $i <= $neuroncount; $i++) {
         my $n = 0;
         for (my $j = 0; $j < $inputcount; $j++) {
-			my $weight = $networkdata->[$i]->{'inputs'}->{$j};
+			my $weight = $networkdata->[$i]->{'inputs'}->[$j];
             $n++ if $weight;
         }
         for (my $j = 0; $j <= $neuroncount; $j++) {
-			my $weight = $networkdata->[$i]->{'neurons'}->{$j};
+			my $weight = $networkdata->[$i]->{'neurons'}->[$j];
             $n++ if $weight;
         }
         next if $n == 0;
@@ -225,32 +247,34 @@ sub mutate_gaussian {
         my $tau_prime = &{$self->{'gaussian_tau_prime'}}($n);
         my $random1 = 2 * rand() - 1;
         for (my $j = 0; $j < $inputcount; $j++) {
-			my $weight = $networkdata->[$i]->{'inputs'}->{$j};
+			my $weight = $networkdata->[$i]->{'inputs'}->[$j];
             next unless $weight;
             my $random2 = 2 * rand() - 1;
-			$networkdata->[$i]->{'eta_inputs'}->{$j} *= exp($tau_prime*$random1+$tau*$random2);
-			$networkdata->[$i]->{'inputs'}->{$j} += $networkdata->[$i]->{'eta_inputs'}->{$j}*$random2;
+			$networkdata->[$i]->{'eta_inputs'}->[$j] *= exp($tau_prime*$random1+$tau*$random2);
+			$networkdata->[$i]->{'inputs'}->[$j] += $networkdata->[$i]->{'eta_inputs'}->[$j]*$random2;
         }
         for (my $j = 0; $j <= $neuroncount; $j++) {
-			my $weight = $networkdata->[$i]->{'neurons'}->{$j};
+			my $weight = $networkdata->[$i]->{'neurons'}->[$j];
             next unless $weight;
             my $random2 = 2 * rand() - 1;
-			$networkdata->[$i]->{'eta_neurons'}->{$j} *= exp($tau_prime*$random1+$tau*$random2);
-			$networkdata->[$i]->{'neurons'}->{$j} += $networkdata->[$i]->{'eta_neurons'}->{$j}*$random2;
+			$networkdata->[$i]->{'eta_neurons'}->[$j] *= exp($tau_prime*$random1+$tau*$random2);
+			$networkdata->[$i]->{'neurons'}->[$j] += $networkdata->[$i]->{'eta_neurons'}->[$j]*$random2;
         }
     }
 	# All done. Let's pack it back into an object and let someone else deal
 	# with it.
 	$network = $class->new ( 'inputs' => $inputcount, 
-								 'data' => $networkdata,
-								 'minvalue' => $minvalue,
-								 'maxvalue' => $maxvalue,
-								 'afunc' => $afunc);
+							 'data' => $networkdata,
+							 'minvalue' => $minvalue,
+							 'maxvalue' => $maxvalue,
+							 'afunc' => $afunc,
+							 'dafunc' => $dafunc);
 	return $network;
 }
 
-1;
+__PACKAGE__->meta->make_immutable;
 
+1;
 
 __END__
 =pod
@@ -261,7 +285,7 @@ AI::ANN::Evolver - an evolver for an artificial neural network simulator
 
 =head1 VERSION
 
-version 0.006
+version 0.007
 
 =head1 METHODS
 
