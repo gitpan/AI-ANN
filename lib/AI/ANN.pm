@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 package AI::ANN;
 BEGIN {
-  $AI::ANN::VERSION = '0.007';
+  $AI::ANN::VERSION = '0.008';
 }
 use strict;
 use warnings;
@@ -67,9 +67,12 @@ sub execute {
 	my $self = shift;
 	my $inputs = $self->{'inputs'} = shift;
 	# Don't bother dereferencing $inputs only to rereference a lot
-	my @neurons = ();
 	my $net = $self->{'network'}; # For less typing
 	my $lastneuron = $#{$net};
+	my @neurons = ();
+	foreach my $i (0..$lastneuron) {
+		$neurons[$i] = 0;
+	}
 	foreach my $i (0..$lastneuron) {
 		delete $net->[$i]->{'done'};
 		delete $net->[$i]->{'state'};
@@ -82,9 +85,9 @@ sub execute {
 			if ($net->[$i]->{'object'}->ready($inputs, \@neurons)) {
 				my $potential = $net->[$i]->{'object'}->execute($inputs, \@neurons);
                 $self->{'rawpotentials'}->[$i] = $potential;
-				$potential = &{$self->{'afunc'}}($potential);
 				$potential = $self->{'maxvalue'} if $potential > $self->{'maxvalue'};
 				$potential = $self->{'minvalue'} if $potential < $self->{'minvalue'};
+				$potential = &{$self->{'afunc'}}($potential);
 				$neurons[$i] = $net->[$i]->{'state'} = $potential;
 				$net->[$i]->{'done'} = 1;
 				$progress++;
@@ -95,15 +98,12 @@ sub execute {
 	my @notdone = grep {not (defined $net->[$_]->{'done'} &&
 							 $net->[$_]->{'done'} == 1)} 0..$lastneuron;
 	my @neuronstemp = ();
-#	my %notdone; # Apparently Perl gets confused if I my the next line
-#	@notdone{@notdone} = undef; # %notdone is now a hash with a key for each 
-								# 'notdone' neuron.
 	if ($#notdone > 0) { #This is the part where we deal with loops and bad things
 		my $maxerror = 0;
 		my $loopcounter = 1;
 		while (1) {
 			foreach my $i (@notdone) { # Only bother iterating over the
-											# ones we couldn't solve exactly
+									   # ones we couldn't solve exactly
 				# We don't care if it's ready now, we're just going to interate
 				# until it stabilizes.
 				if (not defined $neurons[$i] && $i <= $lastneuron) {
@@ -124,14 +124,14 @@ sub execute {
 			}
 			foreach my $i (0..$lastneuron) { 
 				# Update $neurons, since that is what gets passed to execute
-				$neurons[$i]=$neuronstemp[$i];
+				$neurons[$i] = $neuronstemp[$i];
 			}
 			if (($maxerror < 0.0001 && $loopcounter >= 5) || $loopcounter > 250) {last}
 			$loopcounter++;
 			$maxerror=0;
 		}
 	}
-	
+
 	# Ok, hopefully all the neurons have happy values by now.
 	# Get the output values for neurons corresponding to outputneurons
 	my @output = map {$neurons[$_]} @{$self->{'outputneurons'}};
@@ -144,20 +144,21 @@ sub get_state {
 	my $net = $self->{'network'}; # For less typing
 	my @neurons = map {$net->[$_]->{'state'}} 0..$#{$self->{'network'}};
 	my @output = map {$net->[$_]->{'state'}} @{$self->{'outputneurons'}};
-	
+
 	return $self->{'inputs'}, \@neurons, \@output;
 }
 
 
 sub get_internals {
 	my $self = shift;
+	my $net = $self->{'network'}; # For less typing
 	my $retval = [];
 	for (my $i = 0; $i <= $#{$self->{'network'}}; $i++) {
 		$retval->[$i] = { iamanoutput => 0,
-						  inputs => $self->{'network'}->[$i]->{'object'}->inputs(),
-						  neurons => $self->{'network'}->[$i]->{'object'}->neurons(),
-						  eta_inputs => $self->{'network'}->[$i]->{'object'}->eta_inputs(),
-						  eta_neurons => $self->{'network'}->[$i]->{'object'}->eta_neurons()
+						  inputs => $net->[$i]->{'object'}->inputs(),
+						  neurons => $net->[$i]->{'object'}->neurons(),
+						  eta_inputs => $net->[$i]->{'object'}->eta_inputs(),
+						  eta_neurons => $net->[$i]->{'object'}->eta_neurons()
 						  };
 	}
 	foreach my $i (@{$self->{'outputneurons'}}) {
@@ -193,7 +194,7 @@ sub backprop {
     my $desired = shift;
     my $actual = $self->execute($inputs);
     my $net = $self->{'network'};
-    my $neuroncount = $#{$net};
+    my $lastneuron = $#{$net};
     my $deltas = [];
     my $i = 0;
     foreach my $neuron (@{$self->outputneurons()}) {
@@ -201,23 +202,24 @@ sub backprop {
         $i++;
     }
     my $progress = 0;
-    foreach my $neuron (reverse 0..$neuroncount) {
-#        next if $deltas->[$neuron];
-        foreach my $i (reverse $neuron..$neuroncount) {
+    foreach my $neuron (reverse 0..$lastneuron) {
+        foreach my $i (reverse $neuron..$lastneuron) {
             my $weight = $net->[$i]->{'object'}->neurons()->[$neuron];
-            if (defined $weight && $weight != 0) {
-                $deltas->[$neuron] += $weight * ($deltas->[$i] || 0);
+            if (defined $weight && $weight != 0 && $deltas->[$i]) {
+                $deltas->[$neuron] += $weight * $deltas->[$i];
             }
         }
     } # Finished generating deltas
-    foreach my $neuron (0..$neuroncount) {
+    foreach my $neuron (0..$lastneuron) {
         my $inputinputs = $net->[$neuron]->{'object'}->inputs();
         my $neuroninputs = $net->[$neuron]->{'object'}->neurons();
+        my $dafunc = &{$self->{'dafunc'}}($self->{'rawpotentials'}->[$neuron]);
+        my $delta = $deltas->[$neuron] || 0;
         foreach my $i (0..$#{$inputinputs}) {
-            $inputinputs->[$i] += $inputs->[$i]*$self->{'backprop_eta'}*$deltas->[$neuron]*&{$self->{'dafunc'}}($self->{'rawpotentials'}->[$neuron]);
+            $inputinputs->[$i] += $inputs->[$i]*$self->{'backprop_eta'}*$delta*$dafunc;
         }
         foreach my $i (0..$#{$neuroninputs}) {
-            $neuroninputs->[$i] += $net->[$i]->{'state'}*$self->{'backprop_eta'}*($deltas->[$neuron] || 0)*&{$self->{'dafunc'}}($self->{'rawpotentials'}->[$neuron])
+            $neuroninputs->[$i] += $net->[$i]->{'state'}*$self->{'backprop_eta'}*$delta*$dafunc;
         }
         $net->[$neuron]->{'object'}->inputs($inputinputs);
         $net->[$neuron]->{'object'}->neurons($neuroninputs);
@@ -237,7 +239,7 @@ AI::ANN - an artificial neural network simulator
 
 =head1 VERSION
 
-version 0.007
+version 0.008
 
 =head1 SYNOPSIS
 
@@ -287,7 +289,10 @@ I hope you're seeing the pattern...
 minvalue is the minimum value a neuron can pass. Default 0.
 maxvalue is the maximum value a neuron can pass. Default 1.
 afunc is a reference to the activation function. It should be simple and fast.
-    The activation function is processed /before/ minvalue and maxvalue.
+    The activation function is processed /after/ minvalue and maxvalue.
+dafunc is the derivative of the activation function.
+We strongly advise that you memoize your afunc and dafunc if they are at all
+    complicated. We will do our best to behave.
 
 =head2 execute
 

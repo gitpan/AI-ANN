@@ -1,5 +1,13 @@
 Revision History for ANN
 
+0.008     2011-06-13 06:52:38 UTC
+          Add support for an Inline::C version of AI::ANN::Neuron::Execute.
+          This is the default.
+
+          Fix a few extra errors because of uninitialized values being sent to
+          the C code. If you're using the inline::c stuff, be careful that 
+          you don't skip any necessary inputs.
+
 0.007     2011-06-12 04:44:46 UTC
           Add backprop, not tested.
 

@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 package AI::ANN::Evolver;
 BEGIN {
-  $AI::ANN::Evolver::VERSION = '0.007';
+  $AI::ANN::Evolver::VERSION = '0.008';
 }
 # ABSTRACT: an evolver for an artificial neural network simulator
 
@@ -285,7 +285,7 @@ AI::ANN::Evolver - an evolver for an artificial neural network simulator
 
 =head1 VERSION
 
-version 0.007
+version 0.008
 
 =head1 METHODS
 
